@@ -1,0 +1,49 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: ✨ 自定义代码加密混淆
+        run: |
+          python obfuscator.py main.py
+
+      - name: 🚀 执行跨平台安卓打包
+        run: |
+          flet build apk
+
+      - name: 📤 输出最终安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppleCalculator-v1.0-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
