@@ -34,9 +34,29 @@ jobs:
           pip install flet
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: ✨ 自定义代码加密混淆
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust Decryptor libraries
         run: |
-          python obfuscator.py main.py
+          cd rust_crypto
+          cargo ndk -t arm64-v8a -t x86_64 build --release
+          cd ..
+
+      - name: ✨ 自定义代码加密混淆 (Rust-based)
+        run: |
+          cd rust_crypto
+          cargo run --release --bin encryptor -- ../main.py ../payload.bin
+          cd ..
+          rm main.py
+          cp rust_crypto/target/aarch64-linux-android/release/libdecryptor.so libdecryptor_aarch64.so
+          cp rust_crypto/target/x86_64-linux-android/release/libdecryptor.so libdecryptor_x86_64.so
+          mv loader.py main.py
 
       - name: 🚀 执行跨平台安卓打包
         run: |
