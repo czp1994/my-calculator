@@ -1,0 +1,16 @@
+[package]
+name = "rust_crypto"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "decryptor"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "encryptor"
+path = "src/main.rs"
+
+[dependencies]
+aes-gcm = "0.10.3"
+rand = "0.8.5"
