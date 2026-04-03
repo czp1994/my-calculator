@@ -83,7 +83,9 @@ jobs:
       - name: 配置阿里云凭证
         run: |
           aliyun configure set --access-key-id ${{ secrets.ALIYUN_ACCESS_KEY_ID }} --access-key-secret ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }} --region cn-guangzhou
-
+      - name: 🔍 测试权限是否生效（验证用）
+        run: |
+          aliyun ecs DescribeInstances --RegionId cn-guangzhou --InstanceIds '["i-7xv9ana72ptpoez4wvf4"]'
       - name: 自动部署到服务器
         run: |
           aliyun ecs RunCommand \
