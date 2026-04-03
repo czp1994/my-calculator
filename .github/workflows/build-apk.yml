@@ -70,8 +70,6 @@ jobs:
 
 # ===========================================================================
 # 👇 下面这段是修好的自动部署服务器，不会再报错
-# ===========================================================================
-# 下面这段是修好的自动部署服务器，不会再报错
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -80,6 +78,13 @@ jobs:
         uses: aliyun/setup-aliyun-cli-action@v1
         with:
           version: latest
+  
+      - name: 配置阿里云凭证（强制生效）
+        run: |
+          aliyun configure set \
+            --access-key-id "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" \
+            --access-key-secret "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" \
+            --region cn-guangzhou
   
       - name: 自动部署到服务器
         run: |
@@ -90,7 +95,3 @@ jobs:
             --Type RunShellScript \
             --Username deploy \
             --Timeout 120
-        env:
-          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-          ALIYUN_REGION: cn-guangzhou
