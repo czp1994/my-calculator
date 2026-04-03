@@ -74,24 +74,30 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: 安装阿里云CLI
-        uses: aliyun/setup-aliyun-cli-action@v1
-        with:
-          version: latest
-  
-      - name: 配置阿里云凭证（强制生效）
+      - name: 🚀 部署到 Aliyun ECS (CLI 方式)
+        env:
+          ALICLOUD_ACCESS_KEY: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALICLOUD_SECRET_KEY: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALICLOUD_REGION: "cn-guangzhou"
         run: |
-          aliyun configure set \
-            --access-key-id "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" \
-            --access-key-secret "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" \
-            --region cn-guangzhou
-  
-      - name: 自动部署到服务器
-        run: |
+          # 1. 下载并安装官方最新版 CLI (确保 CLI 版本不会因为 runner 镜像太旧而出 bug)
+          curl -sLo aliyun-cli.tgz https://github.com/aliyun/aliyun-cli/releases/latest/download/aliyun-cli-linux-3.0.177-amd64.tgz
+          tar -xvzf aliyun-cli.tgz
+          sudo mv aliyun /usr/local/bin/
+
+          # 2. 编写你要在远端服务器执行的 Shell 脚本 (加入 || true 屏蔽进程不存在的错误)
+          COMMAND_STRING="cd /opt/myapp && pkill -f 'python3 main.py' || true && nohup python3 main.py > app.log 2>&1 &"
+          
+          # 3. 对命令进行无换行的 Base64 编码 (Aliyun API 强制要求该转换)
+          B64_CMD=$(echo -n "$COMMAND_STRING" | base64 -w 0)
+
+          # 4. 执行 RunCommand: 严格按照 InstanceId.1 数组参数传递
+          echo "Starting remote deployment..."
           aliyun ecs RunCommand \
-            --RegionId cn-guangzhou \
-            --InstanceId "i-7xv9ana74ptpoez4wvf4" \
-            --CommandContent "cd /opt/myapp && git pull && pkill -f 'main.py' || true && nohup python3 main.py > app.log 2>&1 &" \
-            --Type RunShellScript \
-            --Username deploy \
-            --Timeout 120
+            --RegionId "cn-guangzhou" \
+            --Type "RunShellScript" \
+            --InstanceId.1 "i-7xv9ana74ptpoez4wvf4" \
+            --CommandContent "$B64_CMD" \
+            --Timeout 60
+
+
