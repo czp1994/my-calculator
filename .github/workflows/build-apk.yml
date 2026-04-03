@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK And Auto Deploy Server
 
 on:
   push:
@@ -68,15 +68,25 @@ jobs:
           name: AppleCalculator-v1.0-APK
           path: build/apk/**/*.apk
 
-      - name: 自动部署到服务器
-        uses: aliyun/aliyun-actions/ecs-command@main
+# ==============================================================================
+# 👇 下面这段是新增：打包APK完成后 → 自动部署服务器Python后端
+# ==============================================================================
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安装阿里云CLI
+        uses: aliyun/setup-aliyun-cli-action@v1
         with:
           access-key-id: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           access-key-secret: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-          region-id: cn-guangzhou
-          instance-id: i-7xv9ana74ptpoez4wvf4
-          command: |
-            cd /opt/myapp
-            git pull
-            pkill -f 'main.py'
-            python3 main.py &
+          region: cn-guangzhou
+
+      - name: 自动部署到服务器
+        run: |
+          aliyun ecs RunCommand \
+            --RegionId cn-guangzhou \
+            --InstanceId i-7xv9ana72ptpoez4wvf4 \
+            --CommandContent "cd /opt/myapp && git pull && pkill -f 'main.py' ; python3 main.py &" \
+            --Type RunShellScript \
+            --Username deploy
