@@ -71,6 +71,7 @@ jobs:
 # ===========================================================================
 # 👇 下面这段是修好的自动部署服务器，不会再报错
 # ===========================================================================
+# 下面这段是修好的自动部署服务器，不会再报错
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -79,18 +80,17 @@ jobs:
         uses: aliyun/setup-aliyun-cli-action@v1
         with:
           version: latest
-
-      - name: 配置阿里云凭证
-        run: |
-          aliyun configure set --access-key-id ${{ secrets.ALIYUN_ACCESS_KEY_ID }} --access-key-secret ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }} --region cn-guangzhou
-      - name: 🔍 测试权限是否生效（验证用）
-        run: |
-          aliyun ecs DescribeInstances --RegionId cn-guangzhou --InstanceIds '["i-7xv9ana74ptpoez4wvf4"]'
+  
       - name: 自动部署到服务器
         run: |
           aliyun ecs RunCommand \
             --RegionId cn-guangzhou \
             --InstanceId i-7xv9ana74ptpoez4wvf4 \
-            --CommandContent "cd /opt/myapp && git pull && pkill -f 'main.py' ; python3 main.py &" \
+            --CommandContent "cd /opt/myapp && git pull && pkill -f 'main.py' || true && nohup python3 main.py > app.log 2>&1 &" \
             --Type RunShellScript \
-            --Username deploy
+            --Username deploy \
+            --Timeout 120
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_REGION: cn-guangzhou
