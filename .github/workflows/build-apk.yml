@@ -71,33 +71,37 @@ jobs:
 # ===========================================================================
 # 👇 下面这段是修好的自动部署服务器，不会再报错
   deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: 安装阿里云CLI
-        uses: aliyun/setup-aliyun-cli-action@v1
-        with:
-          version: latest
-
-      - name: 🚀 部署到 Aliyun ECS (CLI 方式)
-        env:
-          ALICLOUD_ACCESS_KEY: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALICLOUD_SECRET_KEY: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-          ALICLOUD_REGION: "cn-guangzhou"
-        run: |
-          # 1. 编写你要在远端服务器执行的 Shell 脚本 (加入 || true 屏蔽进程不存在的错误)
-          COMMAND_STRING="cd /opt/myapp && pkill -f 'python3 main.py' || true && nohup python3 main.py > app.log 2>&1 &"
-          
-          # 2. 对命令进行无换行的 Base64 编码 (Aliyun API 强制要求该转换)
-          B64_CMD=$(echo -n "$COMMAND_STRING" | base64 -w 0)
-
-          # 3. 执行 RunCommand: 严格按照 InstanceId.1 数组参数传递
-          echo "Starting remote deployment..."
-          aliyun ecs RunCommand \
-            --RegionId "cn-guangzhou" \
-            --Type "RunShellScript" \
-            --InstanceId.1 "i-7xv9ana74ptpoez4wvf4" \
-            --CommandContent "$B64_CMD" \
-            --Timeout 60
+      needs: build
+      runs-on: ubuntu-latest
+      steps:
+        - name: 安装阿里云 CLI
+          uses: aliyun/setup-aliyun-cli-action@v1
+          with:
+            version: latest
+  
+        - name: 🚀 部署到 Aliyun ECS (CLI 方式)
+          run: |
+            # 1. 强制写入 CLI 全局配置，避免由于环境变量不识别引发的凭证/地域丢失报错
+            aliyun configure set \
+              --profile default \
+              --mode AK \
+              --region "cn-guangzhou" \
+              --access-key-id "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" \
+              --access-key-secret "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}"
+  
+            # 2. 编写你要在远端服务器执行的 Shell 脚本 (加入 || true 以免初次部署无进程可杀报错)
+            COMMAND_STRING="cd /opt/myapp && pkill -f 'python3 main.py' || true && nohup python3 main.py > app.log 2>&1 &"
+            
+            # 3. 对命令进行无换行的 Base64 编码 (Aliyun API 强制要求对命令内容进行编码)
+            B64_CMD=$(echo -n "$COMMAND_STRING" | base64 -w 0)
+  
+            # 4. 执行 RunCommand: 严格按照官方 InstanceId.1 数组参数传递
+            echo "Starting remote deployment..."
+            aliyun ecs RunCommand \
+              --RegionId "cn-guangzhou" \
+              --Type "RunShellScript" \
+              --InstanceId.1 "i-7xv9ana74ptpoez4wvf4" \
+              --CommandContent "$B64_CMD" \
+              --Timeout 60
 
 
