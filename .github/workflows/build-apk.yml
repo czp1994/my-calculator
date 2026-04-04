@@ -70,38 +70,28 @@ jobs:
 
 # ===========================================================================
 # 👇 下面这段是修好的自动部署服务器，不会再报错
+# 精简yml只上传apk，不执行启动命令
   deploy:
       needs: build
       runs-on: ubuntu-latest
       steps:
-        - name: 安装阿里云 CLI
-          uses: aliyun/setup-aliyun-cli-action@v1
+        # 第一步：把上面 build 环节打包好的 APK 下载到当前流水线的 my_apk 临时文件夹里
+        - name: 📥 获取打包好的 APK
+          uses: actions/download-artifact@v4
           with:
-            version: latest
+            name: AppleCalculator-v1.0-APK
+            path: my_apk
   
-        - name: 🚀 部署到 Aliyun ECS (CLI 方式)
-          run: |
-            # 1. 强制写入 CLI 全局配置，避免由于环境变量不识别引发的凭证/地域丢失报错
-            aliyun configure set \
-              --profile default \
-              --mode AK \
-              --region "cn-guangzhou" \
-              --access-key-id "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" \
-              --access-key-secret "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}"
-  
-            # 2. 编写你要在远端服务器执行的 Shell 脚本 (加入 || true 以免初次部署无进程可杀报错)
-            COMMAND_STRING="cd /opt/myapp && pkill -f 'python3 main.py' || true && nohup python3 main.py > app.log 2>&1 &"
-            
-            # 3. 对命令进行无换行的 Base64 编码 (Aliyun API 强制要求对命令内容进行编码)
-            B64_CMD=$(echo -n "$COMMAND_STRING" | base64 -w 0)
-  
-            # 4. 执行 RunCommand: 严格按照官方 InstanceId.1 数组参数传递
-            echo "Starting remote deployment..."
-            aliyun ecs RunCommand \
-              --RegionId "cn-guangzhou" \
-              --Type "RunShellScript" \
-              --InstanceId.1 "i-7xv9ana74ptpoez4wvf4" \
-              --CommandContent "$B64_CMD" \
-              --Timeout 60
+        # 第二步：直接通过纯正的 SSH 协议，安全免密地塞进你的阿里云
+        - name: 📦 纯文件传输 APK 到 ECS 服务器
+          uses: appleboy/scp-action@master
+          with:
+            host: ${{ secrets.ECS_HOST }}
+            username: "deploy"
+            key: ${{ secrets.ECS_SSH_KEY }}
+            source: "my_apk/**/*.apk"
+            target: "/opt/myapp/static/"  # 在这里写上你真正存放安卓下载包的服务端路径
+            strip_components: 1           # 剥离前缀，直接把干净的 apk 文件扔到目标目录下
+
 
 
